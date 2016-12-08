@@ -36,7 +36,7 @@
 #include "cursor.h"
 #define UNUSED(x) ((x) = (x))
 #define FB_NAME     "/dev/fb0"
-#define INPUT_NAME  "/dev/input/by-id/usb-DELL_Dell_QuietKey_Keyboard-event-kbd"
+#define INPUT_NAME  "/dev/input/event0"
 
 enum nsfb_key_code_e linux_nsfb_map[] = {
     NSFB_KEY_UNKNOWN,
