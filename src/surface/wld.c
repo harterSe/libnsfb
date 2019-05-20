@@ -8,7 +8,13 @@
 
 #define _XOPEN_SOURCE 500
 
+/* deal with using -std=c99 and glibc changed to no have mkostemp with it set */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,7 +54,7 @@ struct wld_connection {
     struct wl_display *display; /**< connection object */
     struct wl_registry *registry; /**< registry object */
 
-    /** compositor object, available once teh registry messages have
+    /** compositor object, available once the registry messages have
      * been processed
      */
     struct wl_compositor *compositor;
@@ -975,13 +981,14 @@ pointer_handle_motion(void *data,
     UNUSED(time);
 
     event = calloc(1, sizeof(struct wld_event));
+    if (event != NULL) {
+        event->event.type = NSFB_EVENT_MOVE_ABSOLUTE;
+        event->event.value.vector.x = wl_fixed_to_int(sx_w);
+        event->event.value.vector.y = wl_fixed_to_int(sy_w);
+        event->event.value.vector.z = 0;
 
-    event->event.type = NSFB_EVENT_MOVE_ABSOLUTE;
-    event->event.value.vector.x = wl_fixed_to_int(sx_w);
-    event->event.value.vector.y = wl_fixed_to_int(sy_w);
-    event->event.value.vector.z = 0;
-
-    enqueue_wld_event(input->connection, event);
+        enqueue_wld_event(input->connection, event);
+    }
 }
 
 static void
@@ -997,7 +1004,9 @@ pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial,
     UNUSED(time);
 
     event = calloc(1, sizeof(struct wld_event));
-
+    if (event == NULL) {
+        return;
+    }
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 	event->event.type = NSFB_EVENT_KEY_DOWN;
     } else {
@@ -1074,11 +1083,11 @@ pointer_handle_axis(void *data, struct wl_pointer *pointer,
 }
 
 static const struct wl_pointer_listener pointer_listener = {
-	pointer_handle_enter,
-	pointer_handle_leave,
-	pointer_handle_motion,
-	pointer_handle_button,
-	pointer_handle_axis,
+	.enter  = pointer_handle_enter,
+	.leave  = pointer_handle_leave,
+	.motion = pointer_handle_motion,
+	.button = pointer_handle_button,
+	.axis   = pointer_handle_axis,
 };
 
 static void
@@ -1259,7 +1268,6 @@ new_connection(void)
     struct wld_connection* connection;
 
     connection = calloc(1, sizeof(struct wld_connection));
-
     if (connection == NULL) {
 	return NULL;
     }
@@ -1456,8 +1464,9 @@ os_create_anonymous_file(off_t size)
 	}
 
 	name = malloc(strlen(path) + sizeof(template));
-	if (!name)
+	if (name == NULL) {
 		return -1;
+        }
 
 	strcpy(name, path);
 	strcat(name, template);
@@ -1657,8 +1666,9 @@ static int x_initialise(nsfb_t *nsfb)
 	return -1;
 
     xstate = calloc(1, sizeof(xstate_t));
-    if (xstate == NULL)
+    if (xstate == NULL) {
 	return -1; /* no memory */
+    }
 
     /* open connection with the server */
     xstate->connection = xcb_connect(NULL, NULL);
